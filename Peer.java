@@ -11,6 +11,10 @@ public class Peer {
 		this.porta = porta;
 	}
 
+	public Peer() {
+		super();
+	}
+
 	public String getIp() {
 		return ip;
 	}
