@@ -2,7 +2,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class DataStore {
-	private Map<String, Peer> peers = new HashMap<>();
+	private static Map<String, Peer> peers = new HashMap<>();
 	private static DataStore instance = new DataStore();
 	
 	public static DataStore getInstance(){
@@ -10,8 +10,6 @@ public class DataStore {
 	}
 
 	private DataStore(){
-		peers.put("10.0.0.1", new Peer("10.0.0.1", "4000"));
-		peers.put("10.0.0.2", new Peer("10.0.0.2", "4001"));
 	}
 
 	public Peer getPeers(String name) {
@@ -26,5 +24,9 @@ public class DataStore {
 	public String toString() {
 		return "DataStore [peers=" + peers + "]";
 	}	
+	
+	public boolean jaRegistrado(String peerAddress){
+		return peers.containsKey(peerAddress);
+	}
 	
 }

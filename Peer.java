@@ -1,11 +1,14 @@
+import java.io.Serializable;
 import java.util.ArrayList;
 
-public class Peer {
+public class Peer implements Serializable {
+
+	private static final long serialVersionUID = -320728501201666805L;
 	private String ip;
-	private String porta;
+	private int porta;
 	private ArrayList<Arquivo> arquivos = new ArrayList<>();
 
-	public Peer(String ip, String porta) {
+	public Peer(String ip, int porta) {
 		super();
 		this.ip = ip;
 		this.porta = porta;
@@ -23,11 +26,11 @@ public class Peer {
 		this.ip = ip;
 	}
 
-	public String getPorta() {
+	public int getPorta() {
 		return porta;
 	}
 
-	public void setPorta(String porta) {
+	public void setPorta(int porta) {
 		this.porta = porta;
 	}
 

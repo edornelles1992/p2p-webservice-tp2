@@ -1,4 +1,6 @@
 import java.io.IOException;
+import java.io.Reader;
+import java.util.stream.Collectors;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -9,7 +11,7 @@ import com.google.gson.Gson;
 
 public class Servlet extends HttpServlet {
 	
-	public void handlerResources(HttpServletRequest request, HttpServletResponse response) {
+	public void handlerResources(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		response.setHeader("Content-type", "application/json");
 		String requestUrl = request.getRequestURI();
 		String resouce = requestUrl.split("/")[3];
@@ -19,6 +21,7 @@ public class Servlet extends HttpServlet {
 		switch (resouce) {
 		case "registrar":
 			this.registrar(request, response);
+		break;
 		default:
 			this.invalidRequest(response, 404);
 		}
@@ -54,10 +57,21 @@ public class Servlet extends HttpServlet {
 
 
 
-	public void registrar(HttpServletRequest request, HttpServletResponse response) {
-		String ip = request.getParameter("ip");
-		String porta = request.getParameter("porta");
-		DataStore.getInstance().putPeers(new Peer(ip, porta));
-		System.out.println("Peer"+ ip + " registrado!");
+	public void registrar(HttpServletRequest request, HttpServletResponse response) throws IOException {
+		String requestData = request.getReader().lines().collect(Collectors.joining());
+		Gson gson = new Gson();
+		Peer peer = gson.fromJson(requestData, Peer.class);
+		peer.setIp(request.getRemoteAddr());
+		peer.setPorta(request.getRemotePort());
+		response.setStatus(200);
+		
+		if (DataStore.getInstance().jaRegistrado(peer.getIp())) {
+			response.getOutputStream().println(gson.toJson(new ResponseDTO(false, "Você ja está registrado!")));
+		} else { //registra
+			DataStore.getInstance().putPeers(peer);
+			System.out.println("Peer "+ peer.getIp() + " registrado!");
+			response.setStatus(200);
+			response.getOutputStream().println(gson.toJson(new ResponseDTO(true, "Registrado com sucesso!")));
+		}
 	}
 }
