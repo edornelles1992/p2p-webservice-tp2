@@ -1,8 +1,10 @@
+import java.io.Serializable;
 
-public class Arquivo {
+public class Arquivo implements Serializable {
 
 	private String hash;
 	private String nome;
+	private Integer size;
 
 	public Arquivo(String hash, String nome) {
 		super();
@@ -24,6 +26,14 @@ public class Arquivo {
 
 	public void setNome(String nome) {
 		this.nome = nome;
+	}
+
+	public Integer getSize() {
+		return size;
+	}
+
+	public void setSize(Integer size) {
+		this.size = size;
 	}
 
 }

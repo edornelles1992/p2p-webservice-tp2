@@ -1,28 +1,24 @@
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
+import java.lang.reflect.Type;
 import java.math.BigInteger;
 import java.net.HttpURLConnection;
-import java.net.InetAddress;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.nio.file.Files;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 public class RestApiClient extends Utils {
 
-	static HashMap<String, Arquivo> arquivosMap;
+
 
 	public static void main(String[] args) throws IOException, ClassNotFoundException {
 
@@ -37,7 +33,8 @@ public class RestApiClient extends Utils {
 
 		while (true) {
 			try {
-				System.out.println("(Digite 'registrar' para se conectar ao servidor)");
+				System.out.println("registrar - registra o peer no servidor");
+				System.out.println("buscar - busca lista de arquivos disponiveis para baixar");
 				String command = scanner.nextLine();
 
 				if ("registrar".equalsIgnoreCase(command)) {
@@ -46,24 +43,47 @@ public class RestApiClient extends Utils {
 					Peer peer = new Peer();
 					carregarArquivos(folder, arquivosMap, peer.getArquivos());
 					registrar(server, peer);
-				} else if ("set".equalsIgnoreCase(command)) {
-					System.out.println("Whose info do you want to set?");
-					System.out.println("(Type a person's name now.)");
-					String name = scanner.nextLine();
-
-					System.out.println("When was " + name + " born?");
-					System.out.println("(Type a year now.)");
-					String birthYear = scanner.nextLine();
-
-					System.out.println("Can you tell me about " + name + "?");
-					System.out.println("(Type a sentence now.)");
-					String about = scanner.nextLine();
-
-					setPersonData(server, name, birthYear, about);
-				} 
+					iniciarUploadSocket(); //inicializa socket de upload de arquivos
+					iniciaThreadUpload();
+				} else if ("buscar".equalsIgnoreCase(command)) {
+					Map<String, Peer> peersDisponiveis = listar(server);
+					while (true) {
+						System.out.println("Informe o nome do arquivo que deseja baixar:");
+						String arqEscolhido = scanner.nextLine();
+						if (arqEscolhido != null && !arqEscolhido.isEmpty()) {
+							Peer peerDoArquivo = getPeerByArquivoNome(peersDisponiveis, arqEscolhido);
+							if (peerDoArquivo != null) {
+								downloadArquivo(peerDoArquivo, arqEscolhido);
+							} else {
+								System.out.println("Arquivo inválido ou não disponivel para download.");
+								break;
+							}
+						}
+					}
+				}
 			} catch (Exception e) {
 				System.out.println(e.getMessage());
 			}
+		}
+	}
+
+	private static void downloadArquivo(Peer peerDoArquivo, String arqEscolhido) throws Exception {
+		Arquivo arquivoSelecionado = null;
+		for (Arquivo arquivo : peerDoArquivo.getArquivos()) {
+			if (arquivo.getNome().equalsIgnoreCase(arqEscolhido))
+				arquivoSelecionado = arquivo;
+		}
+
+		try {
+			//conexao com o socket e realiza o download do arquivo.
+			iniciarDownloadSocket(peerDoArquivo.getIp());
+			solitarArquivoDownload(arquivoSelecionado);
+			byte[] arqBytes = receberArquivo();
+			desconectarPeerToDownload();
+			salvarArquivo(arqBytes, arqEscolhido);
+			System.out.println("Arquivo baixado com sucesso na pasta arquivos!");
+		} catch (Exception e) {
+			throw new Exception("Erro na comunicação com o peer para baixar o arquivo!");
 		}
 	}
 
@@ -88,82 +108,30 @@ public class RestApiClient extends Utils {
 		}
 	}
 
-//	public static String registrar(String server, HashMap<String, Arquivo> arquivosMap) throws IOException{ EXEMPLO GET
-//
-//		HttpURLConnection connection = (HttpURLConnection) new URL("http://" + server + ":8080/PersonServlet/people/").openConnection();
-//		
-//		connection.setRequestMethod("GET");
-//
-//		int responseCode = connection.getResponseCode();
-//		if(responseCode == 200){
-//			String response = "";
-//			Scanner scanner = new Scanner(connection.getInputStream());
-//			while(scanner.hasNextLine()){
-//				response += scanner.nextLine();
-//				response += "\n";
-//			}
-//			scanner.close();
-//
-//			return response;
-//		}else{
-//			System.out.println("?");
-//		}
-//		
-//		// an error happened
-//		return null;
-//	}
-
-	public static void setPersonData(String server, String name, String birthYear, String about) throws IOException {
-		HttpURLConnection connection = (HttpURLConnection) new URL(
-				"http://" + server + ":8080/PersonServlet/people/" + name).openConnection();
-
-		connection.setRequestMethod("POST");
-
-		String postData = "name=" + URLEncoder.encode(name);
-		postData += "&about=" + URLEncoder.encode(about);
-		postData += "&birthYear=" + birthYear;
-
-		connection.setDoOutput(true);
-		OutputStreamWriter wr = new OutputStreamWriter(connection.getOutputStream());
-		wr.write(postData);
-		wr.flush();
+	public static Map<String, Peer> listar(String server) throws Exception {
+		HttpURLConnection connection = (HttpURLConnection) new URL("http://" + server + ":8080/Servlet/p2p/listar/")
+				.openConnection();
+		connection.setRequestProperty("Content-Type", "application/json; utf-8");
+		connection.setRequestProperty("Accept", "application/json");
+		connection.setRequestMethod("GET");
 
 		int responseCode = connection.getResponseCode();
-		if (responseCode == 200) {
-			System.out.println("POST was successful.");
-		}
-	}
-
-	public static void carregarArquivos(final File folder, HashMap<String, Arquivo> arquivosMap,
-			ArrayList<Arquivo> arquivosHash) {
-		for (final File fileEntry : folder.listFiles()) {
-			if (fileEntry.isDirectory()) {
-				carregarArquivos(fileEntry, arquivosMap, arquivosHash);
-			} else {
-				byte[] arquivo = null;
-				try {
-					arquivo = Files.readAllBytes(fileEntry.toPath());
-				} catch (IOException e) {
-					e.printStackTrace();
+		String jsonResponse = convertStreamToString(connection.getInputStream());
+		Type type = new TypeToken<ResponseDTO<Map<String, Peer>>>() {
+		}.getType();
+		ResponseDTO<Map<String, Peer>> dto = new Gson().fromJson(jsonResponse, type);
+		if (dto.getSuccess()) {
+			Map<String, Peer> peersDisponiveis = dto.getConteudo();
+			for (Map.Entry<String, Peer> entry : peersDisponiveis.entrySet()) {
+				Peer Peer = entry.getValue();
+				System.out.println("Peer " + Peer.getIp() + " Arquivos: ");
+				for (Arquivo arq : Peer.getArquivos()) {
+					System.out.println(arq.getNome());
 				}
-				String hash = md5sum(Arrays.toString(arquivo));
-				arquivosMap.put(hash, new Arquivo(hash, fileEntry.getName())); // map dos arquivos do client
-				arquivosHash.add(new Arquivo(hash, fileEntry.getName())); // lista dos arquivos hash/nome para enviar
-																			// pro server
 			}
-		}
-	}
-
-	public static String md5sum(String hash) {
-		String s = hash;
-		MessageDigest m;
-		try {
-			m = MessageDigest.getInstance("MD5");
-			m.update(s.getBytes(), 0, s.length());
-			return new BigInteger(1, m.digest()).toString(16);
-		} catch (NoSuchAlgorithmException e) {
-			e.printStackTrace();
-			return null;
+			return peersDisponiveis;
+		} else {
+			throw new Exception(dto.getMensagem());
 		}
 	}
 }
