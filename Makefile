@@ -11,8 +11,10 @@ app_install:
 	@mkdir jetty/webapps/Servlet
 	@mkdir jetty/webapps/Servlet/WEB-INF
 	@mkdir jetty/webapps/Servlet/WEB-INF/classes
+	@mkdir jetty/webapps/Servlet/WEB-INF/lib
 	@cp web.xml jetty/webapps/Servlet/WEB-INF
 	@cp *.class jetty/webapps/Servlet/WEB-INF/classes
+	@cp ./jars/*.jar jetty/webapps/Servlet/WEB-INF/lib
 	
 rest_webservice:
 	@cd jetty && java -jar start.jar && cd ..
