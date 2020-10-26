@@ -1,14 +1,9 @@
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.math.BigInteger;
 import java.net.HttpURLConnection;
+import java.net.InetAddress;
 import java.net.URL;
-import java.nio.file.Files;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
@@ -18,14 +13,11 @@ import com.google.gson.reflect.TypeToken;
 
 public class RestApiClient extends Utils {
 
-
-
 	public static void main(String[] args) throws IOException, ClassNotFoundException {
 
 		if (args.length != 1) {
-			// System.out.println("Usage: java RestApiClient <server_ip>\n");
-			args = new String[] { "localhost" };
-			// return;
+			System.out.println("Usage: java RestApiClient <server_ip>\n");
+			return;
 		}
 
 		String server = args[0];
@@ -33,6 +25,7 @@ public class RestApiClient extends Utils {
 
 		while (true) {
 			try {
+				System.out.println("===MENU===");
 				System.out.println("registrar - registra o peer no servidor");
 				System.out.println("buscar - busca lista de arquivos disponiveis para baixar");
 				String command = scanner.nextLine();
@@ -43,8 +36,9 @@ public class RestApiClient extends Utils {
 					Peer peer = new Peer();
 					carregarArquivos(folder, arquivosMap, peer.getArquivos());
 					registrar(server, peer);
-					iniciarUploadSocket(); //inicializa socket de upload de arquivos
+					iniciarUploadSocket(); // inicializa socket de upload de arquivos
 					iniciaThreadUpload();
+					iniciarThreadConexao(server, peer);
 				} else if ("buscar".equalsIgnoreCase(command)) {
 					Map<String, Peer> peersDisponiveis = listar(server);
 					while (true) {
@@ -55,9 +49,9 @@ public class RestApiClient extends Utils {
 							if (peerDoArquivo != null) {
 								downloadArquivo(peerDoArquivo, arqEscolhido);
 							} else {
-								System.out.println("Arquivo inválido ou não disponivel para download.");
-								break;
+								System.out.println("Arquivo invalido ou nao disponivel para download.");
 							}
+							break;
 						}
 					}
 				}
@@ -75,15 +69,14 @@ public class RestApiClient extends Utils {
 		}
 
 		try {
-			//conexao com o socket e realiza o download do arquivo.
+			// conexao com o socket e realiza o download do arquivo.
 			iniciarDownloadSocket(peerDoArquivo.getIp());
 			solitarArquivoDownload(arquivoSelecionado);
 			byte[] arqBytes = receberArquivo();
-			desconectarPeerToDownload();
 			salvarArquivo(arqBytes, arqEscolhido);
-			System.out.println("Arquivo baixado com sucesso na pasta arquivos!");
+			desconectarPeerToDownload();
 		} catch (Exception e) {
-			throw new Exception("Erro na comunicação com o peer para baixar o arquivo!");
+			throw new Exception("Erro na comunicacao com o peer para baixar o arquivo!");
 		}
 	}
 
@@ -95,6 +88,7 @@ public class RestApiClient extends Utils {
 		connection.setRequestMethod("POST");
 		connection.setDoOutput(true);
 		connection.setDoInput(true);
+		peer.setIp(InetAddress.getLocalHost().getHostAddress());
 
 		writeJsonData(connection, peer);
 

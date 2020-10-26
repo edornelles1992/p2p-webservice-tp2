@@ -9,12 +9,14 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.lang.reflect.Type;
 import java.math.BigInteger;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.net.URL;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,13 +29,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 public class Utils {
 
 	private static DatagramSocket downloadSocket;
 	private static DatagramSocket uploadSocket;
 	private final static Integer portaDownload = 50000;
-	private final static Integer portaUpload= 50001;
+	private final static Integer portaUpload = 40000;
 	private static Integer timeout = 1500;
 	protected static HashMap<String, Arquivo> arquivosMap;
 	private static InetAddress enderecoParaEnvio;
@@ -68,7 +71,7 @@ public class Utils {
 	}
 
 	/**
-	 * Pega os dados do peer no qual está com o arquivo passado por parametro
+	 * Pega os dados do peer no qual esta com o arquivo passado por parametro
 	 */
 	protected static Peer getPeerByArquivoNome(Map<String, Peer> peersDisponiveis, String arqEscolhido) {
 		for (Map.Entry<String, Peer> entry : peersDisponiveis.entrySet()) {
@@ -84,7 +87,7 @@ public class Utils {
 	}
 
 	/**
-	 * Cria a conexão do socket destino com base no endereço e porta configurados.
+	 * Cria a conexao do socket destino com base no endereco e porta configurados.
 	 */
 	protected static void iniciarDownloadSocket(String endereco) {
 		try {
@@ -111,7 +114,7 @@ public class Utils {
 	}
 
 	/**
-	 * Fecha a conexão com o socket.
+	 * Fecha a conexao com o socket.
 	 */
 	protected static void desconectarPeerToDownload() {
 		System.out.println("Desconectando do peer...");
@@ -142,8 +145,8 @@ public class Utils {
 			DatagramPacket sendPacket = new DatagramPacket(serialized, serialized.length);
 			downloadSocket.send(sendPacket);
 		} catch (IOException e) {
-			System.out.println("Houve um problema na comunicação com o servidor...");
-			System.out.println("Tentando restabelecer a conexão...");
+			System.out.println("Houve um problema na comunicacao com o servidor...");
+			System.out.println("Tentando restabelecer a conexao...");
 			solitarArquivoDownload(dadosArquivo);
 		}
 	}
@@ -189,8 +192,8 @@ public class Utils {
 			DatagramPacket sendPacket = new DatagramPacket(arquivo, arquivo.length, address, portaDownload);
 			uploadSocket.send(sendPacket);
 		} catch (IOException e) {
-			System.out.println("Houve um problema na comunicação com o peer que deseja o arquivo...");
-			System.out.println("Tentando restabelecer a conexão...");
+			System.out.println("Houve um problema na comunicacao com o peer que deseja o arquivo...");
+			System.out.println("Tentando restabelecer a conexao...");
 			enviarArquivo(arquivo, address);
 		}
 	}
@@ -233,7 +236,7 @@ public class Utils {
 		try {
 			Path path = Paths.get("arquivos\\" + nomeArquivo);
 			Files.write(path, arqBytes);
-			System.out.println("Arquivo Recebido e salvo com sucesso!");
+			System.out.println("Arquivo Recebido e salvo com sucesso na pasta de arquivos!");
 		} catch (IOException e) {
 			e.printStackTrace();
 			System.out.println("Erro ao salvar arquivo!");
@@ -256,6 +259,40 @@ public class Utils {
 		}).start();
 	}
 
+	/**
+	 * Thread que fica disparando para o servidor a chamada rest avisando que o peer
+	 * ainda esta ativo de 5 em 5 segundos
+	 */
+	protected static void iniciarThreadConexao(String server, Peer peer) {
+		new Thread(new Runnable() {
+			public void run() {
+				while (true) {
+					try {
+						Thread.sleep(5000l);
+						HttpURLConnection connection = (HttpURLConnection) new URL(
+								"http://" + server + ":8080/Servlet/p2p/conexao/"+peer.getIp()).openConnection();
+						connection.setRequestProperty("Content-Type", "application/json; utf-8");
+						connection.setRequestProperty("Accept", "application/json");
+						connection.setRequestMethod("GET");
+						int responseCode = connection.getResponseCode();
+						String jsonResponse = convertStreamToString(connection.getInputStream());
+						Type type = new TypeToken<ResponseDTO<Map<String, Peer>>>() {
+						}.getType();
+						ResponseDTO<Map<String, Peer>> dto = new Gson().fromJson(jsonResponse, type);
+						if (dto.getSuccess()) {
+							//comunicao ok, n faz nada...
+						} else {
+							throw new Exception(dto.getMensagem());
+						}
+					} catch (Exception e) {
+						System.out
+								.println(e.getMessage() != null ? e.getMessage() : "Erro ao comunicar com o servidor");
+					}
+				}
+			}
+		}).start();
+	}
+
 	protected static void carregarArquivos(final File folder, HashMap<String, Arquivo> arquivosMap,
 			ArrayList<Arquivo> arquivosHash) {
 		for (final File fileEntry : folder.listFiles()) {
@@ -273,7 +310,7 @@ public class Utils {
 				arq.setSize(arquivoToByteArray(arq).length);
 				arquivosMap.put(hash, arq); // map dos arquivos do client
 				arquivosHash.add(arq); // lista dos arquivos hash/nome para enviar
-																			// pro server
+										// pro server
 			}
 		}
 	}
