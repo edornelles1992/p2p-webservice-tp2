@@ -234,7 +234,7 @@ public class Utils {
 	 */
 	protected static void salvarArquivo(byte[] arqBytes, String nomeArquivo) {
 		try {
-			Path path = Paths.get("arquivos\\" + nomeArquivo);
+			Path path = Paths.get("./arquivos/" + nomeArquivo);
 			Files.write(path, arqBytes);
 			System.out.println("Arquivo Recebido e salvo com sucesso na pasta de arquivos!");
 		} catch (IOException e) {
@@ -270,7 +270,7 @@ public class Utils {
 					try {
 						Thread.sleep(5000l);
 						HttpURLConnection connection = (HttpURLConnection) new URL(
-								"http://" + server + ":8080/Servlet/p2p/conexao/"+peer.getIp()).openConnection();
+								"http://" + server + ":8080/Servlet/p2p/conexao/").openConnection();
 						connection.setRequestProperty("Content-Type", "application/json; utf-8");
 						connection.setRequestProperty("Accept", "application/json");
 						connection.setRequestMethod("GET");

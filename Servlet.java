@@ -38,7 +38,7 @@ public class Servlet extends HttpServlet {
 			this.listar(request, response);
 		break;
 		case "conexao":
-			this.conexao(request, response, requestUrl.split("/")[4]);
+			this.conexao(request, response);
 		break;
 		default:
 			this.invalidResourceRequest(response, 404);
@@ -55,6 +55,7 @@ public class Servlet extends HttpServlet {
 		Gson gson = new Gson();
 		Peer peer = gson.fromJson(requestData, Peer.class);
 		peer.setPorta(request.getRemotePort());
+		peer.setIp(request.getRemoteAddr());
 		response.setStatus(200);
 		
 		if (DataStore.getInstance().jaRegistrado(peer.getIp())) {
@@ -74,9 +75,9 @@ public class Servlet extends HttpServlet {
 		response.getOutputStream().println(new Gson().toJson(new ResponseDTO<Map<String, Peer>>(true, DataStore.getPeers())));
 	}
 	
-	public void conexao(HttpServletRequest request, HttpServletResponse response, String ip) throws IOException {
+	public void conexao(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		System.out.println("recebendo validacao conexao "+ request.getRemoteAddr());
-		DataStore.getInstance().putConexao(ip); //atualiza com data/hora q foi feita a chamada
+		DataStore.getInstance().putConexao(request.getRemoteAddr()); //atualiza com data/hora q foi feita a chamada
 		response.getOutputStream().println(new Gson().toJson(new ResponseDTO(true)));
 	}
 	
